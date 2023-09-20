@@ -29,6 +29,8 @@ void pop(stack_t **stack, unsigned int line_number, char *op_arg);
 void swap(stack_t **stack, unsigned int line_number, char *op_arg);
 void add(stack_t **stack, unsigned int line_number, char *op_arg);
 void nop(stack_t **stack, unsigned int line_number, char *op_arg);
+void process_file(const char *filename, instruction_t opcodes[]);
+int main(int argc, char *argv[]);
 void free_stack(stack_t *stack);
 
 #endif

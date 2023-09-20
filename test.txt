@@ -1,0 +1,319 @@
+#ifndef MONTY_H
+#define MONTY_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <sys/types.h>
+#define MAX_LINE_LENGTH 1024
+
+typedef struct stack_s
+{
+	int n;
+	struct stack_s *prev;
+	struct stack_s *next;
+} stack_t;
+
+typedef struct instruction_s
+{
+	char *opcode;
+	void (*f)(stack_t **stack, unsigned int line_number, char *op_arg);
+} instruction_t;
+
+/* Function prototypes */
+void push(stack_t **stack, unsigned int line_number, char *op_arg);
+void pall(stack_t **stack, unsigned int line_number, char *op_arg);
+void pint(stack_t **stack, unsigned int line_number, char *op_arg);
+void pop(stack_t **stack, unsigned int line_number, char *op_arg);
+void swap(stack_t **stack, unsigned int line_number, char *op_arg);
+void add(stack_t **stack, unsigned int line_number, char *op_arg);
+void nop(stack_t **stack, unsigned int line_number, char *op_arg);
+void process_file(const char *filename, instruction_t opcodes[]);
+int main(int argc, char *argv[]);
+void free_stack(stack_t *stack);
+
+#endif
+#include "monty.h"
+/**
+ * add - Adds the top two elements of the stack.
+ * @stack: A pointer to the top of the stack.
+ * @line_number: The current line number in the Monty bytecode file.
+ * @op_arg: A string representing the argument (unused in this function).
+ */
+void add(stack_t **stack, unsigned int line_number, char *op_arg)
+{
+	(void)op_arg;
+
+	if (!stack || !*stack || !(*stack)->next)
+	{
+		fprintf(stderr, "L%u: can't add, stack too short\n", line_number);
+		exit(EXIT_FAILURE);
+	}
+
+	(*stack)->next->n += (*stack)->n;
+	pop(stack, line_number, op_arg);
+}
+#include "monty.h"
+/**
+ * process_file - Process a Monty bytecode file.
+ * @filename: The name of the Monty bytecode file to process.
+ * @opcodes: An array of opcode structures containing valid operations.
+ */
+void process_file(const char *filename, instruction_t opcodes[])
+{
+	FILE *file;
+	stack_t *stack = NULL;
+	unsigned int line_number = 0;
+	char *line = NULL;
+	char *opcode, *op_arg;
+	int i;
+
+	file = fopen(filename, "r");
+	if (!file)
+	{
+		fprintf(stderr, "Error: Can't open file %s\n", filename);
+		exit(EXIT_FAILURE);
+	}
+	while (1)
+	{
+		line = malloc(MAX_LINE_LENGTH);
+		if (!line)
+		{
+			perror("Error allocating memory for line");
+			exit(EXIT_FAILURE);
+		}
+
+		if (fgets(line, MAX_LINE_LENGTH, file) == NULL)
+		{
+			free(line);
+			break;
+		}
+		line_number++;
+		opcode = strtok(line, " \t\n");
+		op_arg = strtok(NULL, " \t\n");
+
+		if (opcode != NULL)
+		{
+			i = 0;
+			while (opcodes[i].opcode != NULL)
+			{
+				if (strcmp(opcode, opcodes[i].opcode) == 0)
+				{
+					opcodes[i].f(&stack, line_number, op_arg);
+					break;
+				}
+				i++;
+			}
+			if (opcodes[i].opcode == NULL)
+			{
+				fprintf(stderr, "L%u: unknown instruction %s\n", line_number, opcode);
+				free_stack(stack);
+				free(line);
+				fclose(file);
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		free(line);
+	}
+	free_stack(stack);
+	fclose(file);
+}
+#include "monty.h"
+/**
+ * free_stack - Frees all elements of the stack.
+ * @stack: A pointer to the top of the stack.
+ */
+void free_stack(stack_t *stack)
+{
+	stack_t *current;
+
+	while (stack)
+	{
+		current = stack;
+		stack = stack->next;
+		free(current);
+	}
+}
+#include "monty.h"
+/**
+ * main - Entry point for the Monty bytecode interpreter
+ * @argc: The number of command-line arguments
+ * @argv: An array of command-line argument strings
+ *
+ * Return: EXIT_SUCCESS if successful, EXIT_FAILURE on failure
+ */
+int main(int argc, char *argv[])
+{
+	instruction_t opcodes[] = {
+		{"push", push},
+		{"pall", pall},
+		{"pint", pint},
+		{"pop", pop},
+		{"swap", swap},
+		{"add", add},
+		{"nop", nop},
+		{NULL, NULL}
+	};
+
+	if (argc != 2)
+	{
+		fprintf(stderr, "USAGE: monty file\n");
+		exit(EXIT_FAILURE);
+	}
+
+	process_file(argv[1], opcodes);
+
+	return (EXIT_SUCCESS);
+}
+#include "monty.h"
+/**
+ * nop - Does nothing.
+ * @stack: A pointer to the top of the stack (unused).
+ * @line_number: The current line number in the Monty bytecode file (unused).
+ * @op_arg: A string representing the argument (unused).
+ */
+void nop(stack_t **stack, unsigned int line_number, char *op_arg)
+{
+	(void)stack;
+	(void)line_number;
+	(void)op_arg;
+}
+#include "monty.h"
+/**
+ * pall - Prints all elements of the stack.
+ * @stack: A pointer to the top of the stack.
+ * @line_number: The current line number in the Monty bytecode file (unused).
+ * @op_arg: A string representing the argument (unused).
+ */
+void pall(stack_t **stack, unsigned int line_number, char *op_arg)
+{
+	stack_t *current = *stack;
+	(void)line_number;
+	(void)op_arg;
+
+	while (current)
+	{
+		printf("%d\n", current->n);
+		current = current->next;
+	}
+}
+#include "monty.h"
+/**
+ * pint - Prints the value at the top of the stack.
+ * @stack: A pointer to the top of the stack.
+ * @line_number: The current line number in the Monty bytecode file.
+ * @op_arg: A string representing the argument (unused).
+ */
+void pint(stack_t **stack, unsigned int line_number, char *op_arg)
+{
+	(void)op_arg;
+
+	if (!stack || !*stack)
+	{
+		fprintf(stderr, "L%u: can't pint, stack empty\n", line_number);
+		exit(EXIT_FAILURE);
+	}
+
+	printf("%d\n", (*stack)->n);
+}
+#include "monty.h"
+/**
+ * pop - Removes the top element of the stack.
+ * @stack: A pointer to the top of the stack.
+ * @line_number: The current line number in the Monty bytecode file.
+ * @op_arg: A string representing the argument (unused).
+ */
+void pop(stack_t **stack, unsigned int line_number, char *op_arg)
+{
+	stack_t *temp;
+	(void)op_arg;
+
+	if (!stack || !*stack)
+	{
+		fprintf(stderr, "L%u: can't pop an empty stack\n", line_number);
+		exit(EXIT_FAILURE);
+	}
+	temp = *stack;
+	*stack = (*stack)->next;
+	if (*stack)
+	{
+		(*stack)->prev = NULL;
+	}
+	free(temp);
+}
+#include "monty.h"
+/**
+ * push - Pushes an element onto the stack.
+ * @stack: A pointer to the top of the stack.
+ * @line_number: The current line number in the Monty bytecode file.
+ * @op_arg: A string representing the argument to push.
+ */
+void push(stack_t **stack, unsigned int line_number, char *op_arg)
+{
+	stack_t *new_node;
+
+	if (!stack || !op_arg)
+	{
+		fprintf(stderr, "L%u: usage: push integer\n", line_number);
+		exit(EXIT_FAILURE);
+	}
+	new_node = malloc(sizeof(stack_t));
+	if (!new_node)
+	{
+		fprintf(stderr, "Error: malloc failed\n");
+		exit(EXIT_FAILURE);
+	}
+	if (!isdigit(*op_arg) && *op_arg != '-')
+	{
+		fprintf(stderr, "L%u: usage: push integer\n", line_number);
+		free(new_node);
+		exit(EXIT_FAILURE);
+	}
+	new_node->n = atoi(op_arg);
+	new_node->prev = NULL;
+
+	if (*stack)
+	{
+		new_node->next = *stack;
+		(*stack)->prev = new_node;
+	}
+	else
+	{
+		new_node->next = NULL;
+	}
+	*stack = new_node;
+}
+#include "monty.h"
+/**
+ * swap - Swaps the top two elements of the stack.
+ * @stack: A pointer to the top of the stack.
+ * @line_number: The current line number in the Monty bytecode file.
+ * @op_arg: A string representing the argument (unused in this function).
+ */
+void swap(stack_t **stack, unsigned int line_number, char *op_arg)
+{
+	stack_t *temp;
+
+	(void)op_arg;
+
+	if (!stack || !*stack || !(*stack)->next)
+	{
+		fprintf(stderr, "L%u: can't swap, stack too short\n", line_number);
+		exit(EXIT_FAILURE);
+	}
+
+	temp = (*stack)->next;
+
+	(*stack)->next = temp->next;
+	if (temp->next)
+	{
+		temp->next->prev = *stack;
+	}
+
+	temp->prev = NULL;
+	temp->next = *stack;
+	(*stack)->prev = temp;
+	*stack = temp;
+}
